@@ -92,8 +92,6 @@ int main(int argc, char* argv[])
 	RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_HEADER, bOutHeader?1:0);
 	RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_FOLLOWLOCATION, 1);
 	RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_WRITEFUNCTION, HttpWriteCallback);
-	if(!bOutHeader)
-		RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_HEADERFUNCTION, HttpHeaderCallback);
 
 	if(szUserAgent != NULL)
 		RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_USERAGENT, szUserAgent);
