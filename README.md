@@ -2,5 +2,5 @@
 Use libcurl download network resources.
 
 ## usage
- * download [-help] [-head] [url]
+ * download [-help] [-head] [-useragent "user agent"] [url]
 
