@@ -13,6 +13,9 @@
 #include <string>
 #include <map>
 
+#include <boost/format.hpp>
+#include <boost/regex.hpp>
+
 #define RET_CURL(fun, ...)																\
 	if((retCode = fun(__VA_ARGS__)) != CURLE_OK)										\
 	{																					\
@@ -22,15 +25,21 @@
 
 CURL* pstCURLHandle = NULL;
 bool bOutHeader = false;
+bool bOutHttpStatus = false;
+bool bNoOutContent = false;
 const char* szUserAgent = NULL;
 const char* szUrl = NULL;
+
+std::string strHeader;
+std::string strContent;
+int iHttpStatus = 0;
 
 size_t HttpWriteCallback(char* ptr, size_t size, size_t nmemb, void* userdata)
 {
 	char* pbuffer = (char*)malloc(size * nmemb + 1);
 	memcpy(pbuffer, ptr, size * nmemb);
 	pbuffer[size * nmemb] = 0;
-	printf("%s", pbuffer);
+	strContent.append(pbuffer);
 	free(pbuffer);
 	return size * nmemb;
 }
@@ -40,14 +49,14 @@ size_t HttpHeaderCallback(char* ptr, size_t size, size_t nmemb, void* userdata)
 	char* pbuffer = (char*)malloc(size * nmemb + 1);
 	memcpy(pbuffer, ptr, size * nmemb);
 	pbuffer[size * nmemb] = 0;
-	printf("%s", pbuffer);
+	strHeader.append(pbuffer);
 	free(pbuffer);
 	return size * nmemb;
 }
 
 void print_usage()
 {
-	printf("usage: download [-help] [-head] [-useragent \"user agent\"] [url]\n");
+	printf("usage: download [-help] [-status] [-nocontent] [-head] [-useragent \"user agent\"] [url]\n");
 }
 
 int main(int argc, char* argv[])
@@ -58,6 +67,14 @@ int main(int argc, char* argv[])
 		{
 			print_usage();
 			return -1;
+		}
+		else if(strcmp(argv[i], "-nocontent") == 0)
+		{
+			bNoOutContent = true;
+		}
+		else if(strcmp(argv[i], "-status") == 0)
+		{
+			bOutHttpStatus = true;
 		}
 		else if(strcmp(argv[i], "-head") == 0)
 		{
@@ -89,9 +106,9 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_HEADER, bOutHeader?1:0);
-	RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_FOLLOWLOCATION, 1);
+	RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_HEADER, 0);
 	RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_WRITEFUNCTION, HttpWriteCallback);
+	RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_HEADERFUNCTION, HttpHeaderCallback);
 
 	if(szUserAgent != NULL)
 		RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_USERAGENT, szUserAgent);
@@ -130,6 +147,19 @@ int main(int argc, char* argv[])
 	{
 		RET_CURL(curl_easy_setopt, pstCURLHandle, CURLOPT_URL, szUrl);
 		RET_CURL(curl_easy_perform, pstCURLHandle);
+		if(bOutHttpStatus)
+		{
+			boost::regex rgxHttpStatus("^HTTP/([^ ]+) ([0-9]+)");
+			boost::smatch what;
+			if(boost::regex_search(strHeader, what, rgxHttpStatus))
+				printf("%d\n", atoi(what[2].str().c_str()));
+			else
+				printf("500\n");
+		}
+		if(bOutHeader)
+			printf("%s", strHeader.c_str());
+		if(!bNoOutContent)
+			printf("%s", strContent.c_str());
 	}
 
 	curl_easy_cleanup(pstCURLHandle);
